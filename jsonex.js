@@ -66,6 +66,9 @@ var JsonEx = function( json, _stdout, _dump ) {
         } else if ( Array.isArray( json ) && json.length == 2 && typeof json[ 0 ] == 'string' ) {
             var json = jx.set( json[ 0 ], json[ 1 ], {} );
         } else if ( 'object' == typeof( json ) ) {
+            if(json instanceof JsonEx){
+                json=json.get();
+            }
             jx.baseJSON = json;
         }
         return json;
