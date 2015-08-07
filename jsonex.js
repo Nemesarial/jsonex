@@ -1,4 +1,4 @@
-var jsonfile = require( 'jsonfile' );
+var jsonlint = require( 'jsonlint' );
 var fs = require( 'fs' );
 var extend = require( 'extend' );
 
@@ -47,7 +47,9 @@ var JsonEx = function( json, _stdout, _dump ) {
     jx.loadedFile;
 
     jx.setJson = function( json ) {
-        if ( fs.existsSync( json ) ) {
+        if ( 'undefined' == typeof json ) {
+            jx.baseJSON = {};
+        } else if ( fs.existsSync( json ) ) {
             jx.loadFile( json );
         } else {
             jx.baseJSON = jx.parse( json );
@@ -63,6 +65,8 @@ var JsonEx = function( json, _stdout, _dump ) {
             }
         } else if ( Array.isArray( json ) && json.length == 2 && typeof json[ 0 ] == 'string' ) {
             var json = jx.set( json[ 0 ], json[ 1 ], {} );
+        } else if ( 'object' == typeof( json ) ) {
+            jx.baseJSON = json;
         }
         return json;
     }
@@ -78,7 +82,12 @@ var JsonEx = function( json, _stdout, _dump ) {
         var json;
         try {
             jx.loadedFile = filename;
-            json = jsonfile.readFileSync( filename );
+            try {
+                json = jsonlint.parse( String( fs.readFileSync( filename ) ) );
+            } catch ( e ) {
+                console.log( "\nJSON ERROR: " + filename + " :\n\n" + e + "\n\n" );
+                process.exit( 1 );
+            }
         } catch ( e ) {
             jx.stdout( 'ERROR [jsonfile("' + filename + '")]: ' + e.message );
             json = {};
@@ -109,9 +118,10 @@ var JsonEx = function( json, _stdout, _dump ) {
 
     jx.get = function( key, target ) {
         if ( !target ) target = jx.baseJSON;
-        if(!key)return cp(target);
+        if ( !key ) return cp( target );
         if ( target.hasOwnProperty( key ) ) {
-            return cp(target[ key ]);
+            // return typeof( target[ key ] ) == 'object' ) ? cp( target[ key ] ): target[ key ];
+            return target[ key ];
         } else {
             if ( key.indexOf( '.' ) >= 0 ) {
                 var dkey = jsonUtils.shiftDelim( key )
@@ -124,6 +134,31 @@ var JsonEx = function( json, _stdout, _dump ) {
         }
     };
 
+    jx.jsonex = function( key, target ) {
+        return new JsonEx( jx.get( key, target || null ), this.stdout, this.dump );
+    };
+
+    jx.serialize = function( key ) {
+        return JSON.stringify( jx.get( key ) );
+    };
+
+    jx.exists = function( key, target ) {
+        if ( !target ) target = jx.baseJSON;
+        if ( target.hasOwnProperty( key ) ) return true;
+        if ( typeof( target ) == 'object' ) {
+            if ( key.indexOf( '.' ) >= 0 ) {
+                var dkey = jsonUtils.shiftDelim( key )
+                if ( target.hasOwnProperty( dkey.arg ) && 'object' == typeof target[ dkey.arg ] ) {
+                    return jx.exists( dkey.str, target[ dkey.arg ] );
+                } else {
+                    return false;
+                }
+            } else return;
+        } else {
+            return false;
+        }
+    };
+
     jx.apply = function( json ) {
         jx.setJson( extend( true, {}, jx.baseJSON, jx.parse( json ) ) );
     };
@@ -133,7 +168,8 @@ var JsonEx = function( json, _stdout, _dump ) {
         jxn.dump = jx.dump;
         jxn.stdout = jx.stdout;
         var json = jxn.parse( json );
-        jxn.setJson( extend( true, {}, jx.baseJSON, json ) );
+
+        jxn.setJson( extend( true, {}, jx.get(), json ) );
         return jxn;
     };
 
