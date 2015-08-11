@@ -1,6 +1,6 @@
 {
   "name": "mh_jsonex",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "JSON extender",
   "main": "jsonex.js",
   "scripts": {
